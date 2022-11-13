@@ -1,9 +1,23 @@
+using Microsoft.AspNetCore.RateLimiting;
+
+using System.Threading.RateLimiting;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddRateLimiter(_ => _
+    .AddFixedWindowLimiter(policyName: "fixed", options =>
+    {
+        options.PermitLimit = 4;
+        options.Window = TimeSpan.FromSeconds(12);
+        options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        options.QueueLimit = 2;
+    }));
 
 var app = builder.Build();
+
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())
 {
@@ -53,11 +67,11 @@ app.MapGet("/weatherforecast", () =>
 
 app.MapPost("/upload", async (IFormFile file) =>
 {
-    var tempFile = @"C:\Users\supero\Documents\POCs\POCMinimalApi";
+    var tempFile = Path.GetTempFileName();
     app.Logger.LogInformation(tempFile);
     using var stream = File.OpenWrite(tempFile);
     await file.CopyToAsync(stream);
-});
+}).RequireRateLimiting("fixed");
 
 app.MapPost("/upload_many", async (IFormFileCollection myFiles) =>
 {
